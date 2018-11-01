@@ -1,6 +1,6 @@
 import React from 'react';
 import axios from "axios";
-import { StyleSheet, ScrollView, View } from 'react-native';
+import { ScrollView, View, TouchableHighlight } from 'react-native';
 import { Container, Header, Content, Form, Item, Button, Input, Label, Card, Text, CardItem, Body, Left, Right, Title } from 'native-base';
 import { createStackNavigator } from 'react-navigation';
 
@@ -40,24 +40,32 @@ class AllNotes extends React.Component {
     return (
       this.state.notes ?
       <ScrollView>
+        <View style={{flexDirection: "column", alignItems: "center"}}>
       {
               this.state.notes.map((note) => {
                   return (
-          <Card key={note._id}>
+          <TouchableHighlight onPress={() => {
+            this.props.navigation.navigate('OneNote', {
+              note: {...note},
+            })}}>
+          <Card style={{width: 200}} key={note._id}>
             <CardItem header>
               <Text>{note.title}</Text>
             </CardItem>
             <CardItem>
               <Body>
                 <Text>
-                {note.textBody}
+                {note.textBody.length > 75?
+                    note.textBody.substring(0, 75) + "..." :
+                    note.textBody}
                 </Text>
               </Body>
             </CardItem>
-         </Card>);
+         </Card>
+         </TouchableHighlight>);
               })
           }
-      
+        </View>
       </ScrollView> : null
     );
   }
@@ -83,28 +91,6 @@ class AddNote extends React.Component {
 
   render() {
     return (
-        // <View>
-        //     <Text>Create New Note:</Text>
-        //     <TextInput 
-        //         onChangeText={(title) => this.setState({title})}
-        //         type="text" 
-        //         placeholder="Note Title"
-        //         name="title"
-        //         value={this.state.title}
-        //         className="new-title"
-        //         >
-        //     </TextInput>
-        //     <TextInput 
-        //         onChangeText={(textBody) => this.setState({textBody})}
-        //         type="text" 
-        //         placeholder="Note Content"
-        //         name="textBody"
-        //         value={this.state.textBody}
-        //         className="new-textBody"
-        //         >
-        //     </TextInput>
-        //     <Button title="Save" onPress={this.addANote} />
-        // </View>
         <Container>
         <Header>
           <Left/>
@@ -137,11 +123,113 @@ class AddNote extends React.Component {
   }
 }
 
+class SingleNote extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+        title: this.props.navigation.getParam("note", "false"),
+        textBody: this.props.navigation.getParam("note", "false"),
+    }
+  }
+  edit = () => {
+    this.props.navigation.navigate('EditNote', {
+      title: this.state.title.title,
+      textBody: this.state.textBody.textBody,
+      id: this.state.title._id,
+    })}
+  
+  deleteNote = () => {
+    console.log(this.state.title._id)
+    axios
+      .delete(`https://fe-notes.herokuapp.com/note/delete/${this.state.title._id}`)
+      .then(this.setState({title: "", textBody: "",}))
+      .then(this.props.navigation.push('Notes'))
+      .catch(error => console.log(error))
+  }
+
+  render() {
+    return (
+      this.state.title ?
+      <ScrollView>
+        <View style={{flexDirection: "column", alignItems: "center"}}>
+          <Card style={{width: 200}}>
+            <CardItem header>
+              <Text>{this.state.title.title}</Text>
+            </CardItem>
+            <CardItem>
+              <Body>
+                <Text>
+                {this.state.textBody.textBody}
+                </Text>
+              </Body>
+            </CardItem>
+         </Card>
+        </View>
+        <Button full primary onPress={this.edit}><Text>Edit</Text></Button>
+        <Button full danger onPress={this.deleteNote}><Text>Delete</Text></Button>
+      </ScrollView> : null
+    );
+  }
+}
+
+class EditNote extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+        title: this.props.navigation.getParam("title", "false"),
+        textBody: this.props.navigation.getParam("textBody", "false"),
+        _id: this.props.navigation.getParam("id", "false"),
+    }
+  }
+
+  updateNote = () => {
+    axios
+        .put(`https://fe-notes.herokuapp.com/note/edit/${this.state._id}`, this.state)
+        .then(res => this.props.navigation.push("Notes"))
+        .catch(error => console.log(error))
+}
+
+  render() {
+    return (
+        <Container>
+        <Header>
+          <Left/>
+          <Body>
+            <Title>Edit a note</Title>
+          </Body>
+          <Right />
+        </Header>
+        <Form>
+            <Item stackedLabel>
+              <Label>Note Title</Label>
+              <Input 
+              onChangeText={(title) => this.setState({title})}
+              type="text"
+              value={this.state.title}
+              />
+            </Item>
+            <Item stackedLabel last>
+              <Label>Note Text</Label>
+              <Input 
+                onChangeText={(textBody) => this.setState({textBody})}
+                type="text"
+                value={this.state.textBody}
+              />
+            </Item>
+            <Button full primary onPress={this.updateNote}><Text>Save</Text></Button>
+          </Form>
+      </Container>
+    )
+  }
+}
+
 const RootStack = createStackNavigator(
   {
     Home: HomeScreen,
     Notes: AllNotes,
     NewNote: AddNote,
+    OneNote: SingleNote,
+    EditNote: EditNote,
   },
   {
     initialRouteName: 'Home',
@@ -153,27 +241,3 @@ export default class App extends React.Component {
     return <RootStack />;
   }
 }
-
-const styles = StyleSheet.create({
-  notepage: {
-    flex: 1,
-    flexDirection: "row",
-    justifyContent: "space-evenly",
-    flexWrap: "wrap",
-    backgroundColor: "white",
-  },
-  notecard: {
-    backgroundColor: "#F2F1F2",
-    borderColor: "black",
-    borderWidth: 0.5,
-    width: 150,
-    height: "auto",
-    marginBottom: 10,
-    borderRadius: 5,
-  },
-  header: {
-    borderWidth: 0.25,
-    borderColor: "black",
-    textAlign: "center",
-  }
-});
